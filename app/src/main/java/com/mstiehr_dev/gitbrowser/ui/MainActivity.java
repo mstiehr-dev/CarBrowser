@@ -2,7 +2,6 @@ package com.mstiehr_dev.gitbrowser.ui;
 
 import android.content.Context;
 import android.os.AsyncTask;
-import android.support.annotation.IdRes;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -15,14 +14,13 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
-import android.widget.SpinnerAdapter;
 
 import com.mstiehr_dev.gitbrowser.R;
 import com.mstiehr_dev.gitbrowser.model.Car;
+import com.mstiehr_dev.gitbrowser.model.Driver;
 import com.mstiehr_dev.gitbrowser.net.CarsDownloader;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity
@@ -30,8 +28,9 @@ public class MainActivity extends AppCompatActivity
     private static final String TAG = "MainActivity";
 
     private List<String> carNames = new ArrayList<>();
-    private List<String> driverIds = new ArrayList<>();
+    private List<Driver> drivers = new ArrayList<>();
     private CarAdapter carAdapter;
+    private DriverSpinnerAdapter driverAdapter;
     ListView listView;
     Spinner spinner;
     ProgressBar progressBar;
@@ -41,20 +40,21 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        initViews();
+
         initDriverIDs();
 
         carAdapter = new CarAdapter(this, android.R.layout.simple_list_item_1, carNames);
+        driverAdapter = new DriverSpinnerAdapter(this, android.R.layout.simple_spinner_item);
 
-        listView = (ListView) findViewById(R.id.listview);
         listView.setEmptyView(findViewById(R.id.tv_empty));
         listView.setAdapter(carAdapter);
 
-        spinner = (Spinner) findViewById(R.id.spinner);
-        spinner.setAdapter(new DriverSpinnerAdapter(this, android.R.layout.simple_spinner_item, driverIds));
+        spinner.setAdapter(driverAdapter);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                String idStr = driverIds.get(position);
+                String idStr = Long.toString(drivers.get(position).getId());
 
                 Log.d(TAG, "onItemClick: " + idStr);
                 new BackgroundTask().execute(new String[]{idStr});
@@ -66,16 +66,34 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        progressBar = (ProgressBar) findViewById(R.id.progress_bar);
         progressBar.setVisibility(View.INVISIBLE);
     }
 
+    private void initViews()
+    {
+        listView = (ListView) findViewById(R.id.listview);
+        spinner = (Spinner) findViewById(R.id.spinner);
+        progressBar = (ProgressBar) findViewById(R.id.progress_bar);
+    }
 
 
     class DriverSpinnerAdapter extends ArrayAdapter<String>
     {
-        public DriverSpinnerAdapter(@NonNull Context context, @LayoutRes int resource, @NonNull List<String> objects) {
-            super(context, resource, objects);
+        public DriverSpinnerAdapter(@NonNull Context context, @LayoutRes int resource) {
+            super(context, resource);
+        }
+
+        @Override
+        public int getCount() {
+            return drivers.size();
+        }
+
+
+
+        @Nullable
+        @Override
+        public String getItem(int position) {
+            return drivers.get(position).getUsername();
         }
     }
 
@@ -117,37 +135,30 @@ public class MainActivity extends AppCompatActivity
 
     private void initDriverIDs()
     {
-        String allIds = "3\n" +
-                "4\n" +
-                "5\n" +
-                "6\n" +
-                "7\n" +
-                "8\n" +
-                "9\n" +
-                "38\n" +
-                "39\n" +
-                "40\n" +
-                "41\n" +
-                "42\n" +
-                "43\n" +
-                "44\n" +
-                "45\n" +
-                "979\n" +
-                "980\n" +
-                "981\n" +
-                "982\n" +
-                "983\n" +
-                "984\n" +
-                "985\n" +
-                "986\n" +
-                "987\n" +
-                "988\n" +
-                "989\n" +
-                "990\n" +
-                "991\n" +
-                "992\n" +
-                "995\n" +
-                "997\n";
-        driverIds.addAll(Arrays.asList(allIds.split("\n")));
+        new DriverDownloadTask().execute();
+    }
+
+    class DriverDownloadTask extends AsyncTask<Void, Void, Void>
+    {
+        @Override
+        protected void onPreExecute() {
+            progressBar.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        protected Void doInBackground(Void... params)
+        {
+            drivers.clear();
+            drivers.addAll(CarsDownloader.downloadDrivers());
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            driverAdapter.notifyDataSetChanged();
+
+            progressBar.setVisibility(View.INVISIBLE);
+        }
     }
 }
